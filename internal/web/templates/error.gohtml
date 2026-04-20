@@ -1,0 +1,7 @@
+{{define "error.gohtml"}}{{template "header" "Error"}}
+<section class="error">
+  <h1>{{.Status}}</h1>
+  <p>{{.Message}}</p>
+  <p><a href="/books">Back to library</a></p>
+</section>
+{{template "footer"}}{{end}}

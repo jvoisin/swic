@@ -1,0 +1,55 @@
+{{define "book_detail.gohtml"}}{{with .Book}}{{template "header" .Title}}
+<article class="book-detail">
+  <div class="cover-col">
+    {{if .HasCover}}
+    <img class="cover cover-large" src="/books/{{.ID}}/cover" alt="Cover of {{.Title}}">
+    {{else}}
+    <div class="cover cover-large cover-placeholder">no cover</div>
+    {{end}}
+  </div>
+  <div class="info-col">
+    <h1>{{.Title}}</h1>
+    {{if .Authors}}
+    <p class="authors">by {{range $i, $a := .Authors}}{{if $i}}, {{end}}<a href="{{searchURL "author" $a}}">{{$a}}</a>{{end}}</p>
+    {{end}}
+    {{if .SeriesName}}
+    <p class="series"><strong>Series:</strong> <a href="{{searchURL "series" .SeriesName}}">{{.SeriesName}}</a> #{{printf "%g" .SeriesIndex}}</p>
+    {{end}}
+    {{if .Publisher}}<p><strong>Publisher:</strong> <a href="{{searchURL "publisher" .Publisher}}">{{.Publisher}}</a></p>{{end}}
+    {{if not .PubDate.IsZero}}<p><strong>Published:</strong> {{fmtDate .PubDate}}</p>{{end}}
+    {{if not .Timestamp.IsZero}}<p><strong>Added:</strong> {{fmtDate .Timestamp}}</p>{{end}}
+    {{if .Languages}}<p><strong>Languages:</strong> {{range $i, $l := .Languages}}{{if $i}}, {{end}}{{$l}}{{end}}</p>{{end}}
+    {{if .Tags}}
+    <p class="tags"><strong>Tags:</strong>
+      {{range $i, $t := .Tags}}{{if $i}}, {{end}}<a class="tag" href="{{searchURL "tag" $t}}">{{$t}}</a>{{end}}
+    </p>
+    {{end}}
+    {{if .Identifiers}}
+    <p><strong>Identifiers:</strong>
+      {{range $i, $id := .Identifiers}}{{if $i}}, {{end}}{{$id.Type}}:{{$id.Value}}{{end}}
+    </p>
+    {{end}}
+
+    {{if .Formats}}
+    <section class="downloads">
+      <h2>Download</h2>
+      <ul>
+        {{$id := .ID}}
+        {{range .Formats}}
+        <li><a class="dl-button" href="/books/{{$id}}/download/{{.Format | lower}}">{{.Format}}</a>
+            <span class="size">{{humanSize .SizeBytes}}</span></li>
+        {{end}}
+      </ul>
+    </section>
+    {{end}}
+
+    {{if .Description}}
+    <section class="description">
+      <h2>Description</h2>
+      <p>{{.Description}}</p>
+    </section>
+    {{end}}
+  </div>
+</article>
+<p><a href="/books">&larr; Back to library</a></p>
+{{template "footer"}}{{end}}{{end}}

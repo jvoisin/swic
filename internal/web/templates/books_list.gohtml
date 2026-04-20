@@ -1,0 +1,59 @@
+{{define "books_list.gohtml"}}{{template "header" "Books"}}
+<section class="toolbar">
+  <h1>Books <span class="count">({{.Total}})</span></h1>
+  <form method="get" action="/books" class="search-form">
+    <input type="search" name="q" value="{{.Query}}" placeholder="Search…" autofocus>
+    <select name="in" title="Search in">
+      <option value=""       {{if eq .SearchIn ""}}selected{{end}}>any</option>
+      <option value="title"  {{if eq .SearchIn "title"}}selected{{end}}>title</option>
+      <option value="author" {{if eq .SearchIn "author"}}selected{{end}}>author</option>
+      <option value="series" {{if eq .SearchIn "series"}}selected{{end}}>series</option>
+      <option value="tag"    {{if eq .SearchIn "tag"}}selected{{end}}>tag</option>
+      <option value="publisher" {{if eq .SearchIn "publisher"}}selected{{end}}>publisher</option>
+    </select>
+    <input type="hidden" name="sort" value="{{.Sort}}">
+    <button type="submit">Search</button>
+    {{if .Query}}<a class="clear" href="/books?sort={{.Sort | urlquery}}">clear</a>{{end}}
+  </form>
+  <form method="get" action="/books" class="sort-form">
+    <input type="hidden" name="q" value="{{.Query}}">
+    <input type="hidden" name="in" value="{{.SearchIn}}">
+    <label for="sort">Sort:</label>
+    <select id="sort" name="sort" onchange="this.form.submit()">
+      <option value="title"  {{if eq .Sort "title"}}selected{{end}}>Title</option>
+      <option value="author" {{if eq .Sort "author"}}selected{{end}}>Author</option>
+      <option value="date"   {{if eq .Sort "date"}}selected{{end}}>Recently added</option>
+    </select>
+    <noscript><button type="submit">Apply</button></noscript>
+  </form>
+</section>
+
+{{if .Books}}
+<ul class="book-grid">
+  {{range .Books}}
+  <li class="book-card">
+    <a href="/books/{{.ID}}" class="cover-link">
+      {{if .HasCover}}
+      <img class="cover" src="/books/{{.ID}}/cover" alt="Cover of {{.Title}}" loading="lazy">
+      {{else}}
+      <div class="cover cover-placeholder">no cover</div>
+      {{end}}
+    </a>
+    <div class="meta">
+      <a href="/books/{{.ID}}" class="title">{{.Title}}</a>
+      {{if .Authors}}<div class="authors">{{range $i, $a := .Authors}}{{if $i}}, {{end}}{{$a}}{{end}}</div>{{end}}
+      {{if .SeriesName}}<div class="series">{{.SeriesName}} #{{printf "%g" .SeriesIndex}}</div>{{end}}
+    </div>
+  </li>
+  {{end}}
+</ul>
+{{else}}
+<p class="empty">{{if .Query}}No books matching “{{.Query}}”.{{else}}No books in this library.{{end}}</p>
+{{end}}
+
+<nav class="pagination">
+  {{if .HasPrev}}<a href="?page={{.PrevPage}}&amp;sort={{.Sort | urlquery}}&amp;q={{.Query | urlquery}}&amp;in={{.SearchIn | urlquery}}">&laquo; Prev</a>{{else}}<span class="disabled">&laquo; Prev</span>{{end}}
+  <span>Page {{.Page}} of {{.TotalPages}}</span>
+  {{if .HasNext}}<a href="?page={{.NextPage}}&amp;sort={{.Sort | urlquery}}&amp;q={{.Query | urlquery}}&amp;in={{.SearchIn | urlquery}}">Next &raquo;</a>{{else}}<span class="disabled">Next &raquo;</span>{{end}}
+</nav>
+{{template "footer"}}{{end}}
