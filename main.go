@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -17,6 +18,13 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "swic: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	var (
 		libraryPath = flag.String("library", "", "path to the Calibre library directory (required)")
 		addr        = flag.String("addr", ":8080", "address to listen on")
@@ -24,25 +32,22 @@ func main() {
 	)
 	flag.Parse()
 
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
-
 	if *libraryPath == "" {
-		logger.Error("missing required -library flag")
 		flag.Usage()
-		os.Exit(2)
+		return fmt.Errorf("missing required -library flag")
 	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	lib, err := calibre.Open(*libraryPath)
 	if err != nil {
-		logger.Error("open calibre library", "err", err)
-		os.Exit(1)
+		return err
 	}
 	defer func() { _ = lib.Close() }()
 
 	srv, err := web.New(lib, logger, *pageSize)
 	if err != nil {
-		logger.Error("init web server", "err", err)
-		os.Exit(1)
+		return err
 	}
 
 	httpSrv := &http.Server{
@@ -70,7 +75,5 @@ func main() {
 	logger.Info("shutting down")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
-		logger.Error("shutdown", "err", err)
-	}
+	return httpSrv.Shutdown(shutdownCtx)
 }
