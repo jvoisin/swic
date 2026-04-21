@@ -8,6 +8,22 @@
   --border: #cfd9e2;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #e0e0e0;
+    --bg: #1a1a2e;
+    --muted: #8899aa;
+    --accent: rgb(100, 180, 220);
+    --accent-dark: rgb(80, 150, 190);
+    --accent-soft: rgb(30, 45, 60);
+    --border: #2a3a4a;
+  }
+  body { background: var(--bg); }
+  .site-header { background: #16213e; }
+  .book-card { background: #16213e; }
+  input[type="search"], select { background: #16213e; color: var(--fg); }
+}
+
 * { box-sizing: border-box; }
 body {
   margin: 0;
