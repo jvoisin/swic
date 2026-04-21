@@ -48,8 +48,9 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 	}
 	totalPages := max((total+s.pageSize-1)/s.pageSize, 1)
 	data := map[string]any{
-		"Books":      books,
-		"Total":      total,
+		"Books":        books,
+		"Total":        total,
+		"LibraryTotal": s.lib.BookCount(),
 		"Page":       page,
 		"TotalPages": totalPages,
 		"Sort":       string(sort),
