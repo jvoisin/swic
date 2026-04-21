@@ -130,7 +130,7 @@ func (l *Library) ListBooks(ctx context.Context, q ListQuery) ([]BookSummary, in
 	if err != nil {
 		return nil, 0, fmt.Errorf("calibre: list books: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	out := make([]BookSummary, 0, q.Limit)
 	var total int
@@ -253,7 +253,7 @@ func queryAll[T any](ctx context.Context, db *sql.DB, q string, scan func(*sql.R
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []T
 	for rows.Next() {
 		v, err := scan(rows)
@@ -298,7 +298,7 @@ func (l *Library) authorsForBooks(ctx context.Context, ids []int64) (map[int64][
 	if err != nil {
 		return nil, fmt.Errorf("calibre: authors: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := make(map[int64][]string, len(ids))
 	for rows.Next() {
 		var book int64
@@ -329,7 +329,7 @@ func (l *Library) progressForBooks(ctx context.Context, ids []int64) (map[int64]
 	if err != nil {
 		return nil, fmt.Errorf("calibre: reading progress: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := make(map[int64]ReadingProgress, len(ids))
 	for rows.Next() {
 		var book int64

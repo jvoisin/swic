@@ -98,7 +98,7 @@ func get(t *testing.T, ts *httptest.Server, path string) (*http.Response, string
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	return resp, string(body)
 }
 
@@ -111,7 +111,7 @@ func TestRouteRedirect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusFound {
 		t.Errorf("status = %d, want 302", resp.StatusCode)
 	}

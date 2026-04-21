@@ -37,7 +37,7 @@ func main() {
 		logger.Error("open calibre library", "err", err)
 		os.Exit(1)
 	}
-	defer lib.Close()
+	defer func() { _ = lib.Close() }()
 
 	srv, err := web.New(lib, logger, *pageSize)
 	if err != nil {
