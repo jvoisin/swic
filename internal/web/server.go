@@ -21,9 +21,13 @@ type Server struct {
 }
 
 // New constructs a Server backed by the given library.
-func New(lib *calibre.Library, logger *slog.Logger) (*Server, error) {
+// pageSize controls how many books are shown per page (0 defaults to 50).
+func New(lib *calibre.Library, logger *slog.Logger, pageSize int) (*Server, error) {
 	if logger == nil {
 		logger = slog.Default()
+	}
+	if pageSize <= 0 {
+		pageSize = 50
 	}
 	tmpl, err := parseTemplates()
 	if err != nil {
@@ -33,7 +37,7 @@ func New(lib *calibre.Library, logger *slog.Logger) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("web: init static fs: %w", err)
 	}
-	return &Server{lib: lib, templates: tmpl, staticFS: staticDir, logger: logger, pageSize: 50}, nil
+	return &Server{lib: lib, templates: tmpl, staticFS: staticDir, logger: logger, pageSize: pageSize}, nil
 }
 
 // Handler returns the configured HTTP handler.

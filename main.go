@@ -20,6 +20,7 @@ func main() {
 	var (
 		libraryPath = flag.String("library", "", "path to the Calibre library directory (required)")
 		addr        = flag.String("addr", ":8080", "address to listen on")
+		pageSize    = flag.Int("page-size", 50, "number of books per page")
 	)
 	flag.Parse()
 
@@ -38,7 +39,7 @@ func main() {
 	}
 	defer lib.Close()
 
-	srv, err := web.New(lib, logger)
+	srv, err := web.New(lib, logger, *pageSize)
 	if err != nil {
 		logger.Error("init web server", "err", err)
 		os.Exit(1)

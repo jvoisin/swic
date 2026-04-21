@@ -78,7 +78,7 @@ func newFixtureServer(t *testing.T) *httptest.Server {
 	}
 	t.Cleanup(func() { _ = lib.Close() })
 
-	srv, err := New(lib, slog.New(slog.DiscardHandler))
+	srv, err := New(lib, slog.New(slog.DiscardHandler), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
