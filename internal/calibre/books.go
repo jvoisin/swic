@@ -49,6 +49,12 @@ type Format struct {
 	SizeBytes int64
 }
 
+// ReadingProgress holds the last known reading position for a book.
+type ReadingProgress struct {
+	Fraction float64   // 0.0 to 1.0
+	LastRead time.Time // when last read
+}
+
 // BookSummary is the compact view used for listings.
 type BookSummary struct {
 	ID          int64
@@ -58,6 +64,7 @@ type BookSummary struct {
 	SeriesIndex float64
 	HasCover    bool
 	Timestamp   time.Time
+	Progress    *ReadingProgress // nil if never read
 }
 
 // Identifier is a typed external identifier (isbn, goodreads, etc.).
@@ -149,8 +156,16 @@ func (l *Library) ListBooks(ctx context.Context, q ListQuery) ([]BookSummary, in
 	if err != nil {
 		return nil, 0, err
 	}
+	progress, err := l.progressForBooks(ctx, ids)
+	if err != nil {
+		// Table may not exist in older Calibre libraries; ignore silently.
+		progress = nil
+	}
 	for i := range out {
 		out[i].Authors = authors[out[i].ID]
+		if p, ok := progress[out[i].ID]; ok {
+			out[i].Progress = &p
+		}
 	}
 	return out, total, nil
 }
@@ -221,6 +236,10 @@ func (l *Library) GetBook(ctx context.Context, id int64) (*Book, error) {
 		scanFormat, b.ID); err != nil {
 		return nil, fmt.Errorf("calibre: formats: %w", err)
 	}
+	progress, _ := l.progressForBooks(ctx, []int64{b.ID})
+	if p, ok := progress[b.ID]; ok {
+		b.Progress = &p
+	}
 	return &b, nil
 }
 
@@ -284,6 +303,41 @@ func (l *Library) authorsForBooks(ctx context.Context, ids []int64) (map[int64][
 			return nil, err
 		}
 		out[book] = append(out[book], name)
+	}
+	return out, rows.Err()
+}
+
+func (l *Library) progressForBooks(ctx context.Context, ids []int64) (map[int64]ReadingProgress, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	placeholders := strings.Join(slices.Repeat([]string{"?"}, len(ids)), ",")
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	// Pick the most recent reading position per book.
+	rows, err := l.db.QueryContext(ctx, `
+		SELECT book, MAX(pos_frac), MAX(epoch)
+		FROM last_read_positions
+		WHERE book IN (`+placeholders+`)
+		GROUP BY book`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("calibre: reading progress: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[int64]ReadingProgress, len(ids))
+	for rows.Next() {
+		var book int64
+		var frac float64
+		var epoch float64
+		if err := rows.Scan(&book, &frac, &epoch); err != nil {
+			return nil, err
+		}
+		out[book] = ReadingProgress{
+			Fraction: frac,
+			LastRead: time.Unix(int64(epoch), 0),
+		}
 	}
 	return out, rows.Err()
 }

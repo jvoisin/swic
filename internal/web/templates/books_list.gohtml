@@ -43,6 +43,7 @@
       <a href="/books/{{.ID}}" class="title">{{.Title}}</a>
       {{if .Authors}}<div class="authors">{{range $i, $a := .Authors}}{{if $i}}, {{end}}{{$a}}{{end}}</div>{{end}}
       {{if .SeriesName}}<div class="series">{{.SeriesName}} #{{printf "%g" .SeriesIndex}}</div>{{end}}
+      {{if .Progress}}<div class="progress" title="Last read {{fmtDate .Progress.LastRead}}">📖 {{printf "%.0f" (mul .Progress.Fraction 100)}}%</div>{{end}}
     </div>
   </li>
   {{end}}
