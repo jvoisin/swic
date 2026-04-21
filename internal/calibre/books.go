@@ -14,9 +14,10 @@ import (
 type SortOrder string
 
 const (
-	SortByTitle  SortOrder = "title"
-	SortByAuthor SortOrder = "author"
-	SortByDate   SortOrder = "date" // most recently added first
+	SortByTitle    SortOrder = "title"
+	SortByAuthor   SortOrder = "author"
+	SortByDate     SortOrder = "date"     // most recently added first
+	SortByLastRead SortOrder = "lastread" // most recently read first
 )
 
 // SearchField selects which column(s) the search string is matched against.
@@ -49,6 +50,12 @@ type Format struct {
 	SizeBytes int64
 }
 
+// ReadingProgress holds the last known reading position for a book.
+type ReadingProgress struct {
+	Fraction float64   // 0.0 to 1.0
+	LastRead time.Time // when last read
+}
+
 // BookSummary is the compact view used for listings.
 type BookSummary struct {
 	ID          int64
@@ -58,6 +65,7 @@ type BookSummary struct {
 	SeriesIndex float64
 	HasCover    bool
 	Timestamp   time.Time
+	Progress    *ReadingProgress // nil if never read
 }
 
 // Identifier is a typed external identifier (isbn, goodreads, etc.).
@@ -79,9 +87,10 @@ type Book struct {
 }
 
 var orderByClause = map[SortOrder]string{
-	SortByAuthor: "author_sort COLLATE NOCASE ASC, sort COLLATE NOCASE ASC",
-	SortByDate:   "timestamp DESC",
-	SortByTitle:  "sort COLLATE NOCASE ASC",
+	SortByAuthor:   "author_sort COLLATE NOCASE ASC, sort COLLATE NOCASE ASC",
+	SortByDate:     "timestamp DESC",
+	SortByTitle:    "sort COLLATE NOCASE ASC",
+	SortByLastRead: "last_read_epoch DESC, timestamp DESC",
 }
 
 // ListBooks returns a page of book summaries plus the total book count.
@@ -105,10 +114,12 @@ func (l *Library) ListBooks(ctx context.Context, q ListQuery) ([]BookSummary, in
 	                     books.has_cover AS has_cover, books.timestamp AS timestamp,
 	                     books.sort AS sort, books.author_sort AS author_sort,
 	                     COALESCE(books.series_index, 1.0) AS series_index,
-	                     COALESCE(series.name, '') AS series_name
+	                     COALESCE(series.name, '') AS series_name,
+	                     COALESCE(lrp.epoch, 0) AS last_read_epoch
 	              FROM books
 	              LEFT JOIN books_series_link ON books_series_link.book = books.id
-	              LEFT JOIN series ON series.id = books_series_link.series` +
+	              LEFT JOIN series ON series.id = books_series_link.series
+	              LEFT JOIN (SELECT book, MAX(epoch) AS epoch FROM last_read_positions GROUP BY book) lrp ON lrp.book = books.id` +
 		joins +
 		where + `
 	          )
@@ -119,9 +130,9 @@ func (l *Library) ListBooks(ctx context.Context, q ListQuery) ([]BookSummary, in
 	if err != nil {
 		return nil, 0, fmt.Errorf("calibre: list books: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
-	var out []BookSummary
+	out := make([]BookSummary, 0, q.Limit)
 	var total int
 	for rows.Next() {
 		var (
@@ -149,8 +160,16 @@ func (l *Library) ListBooks(ctx context.Context, q ListQuery) ([]BookSummary, in
 	if err != nil {
 		return nil, 0, err
 	}
+	progress, err := l.progressForBooks(ctx, ids)
+	if err != nil {
+		// Table may not exist in older Calibre libraries; ignore silently.
+		progress = nil
+	}
 	for i := range out {
 		out[i].Authors = authors[out[i].ID]
+		if p, ok := progress[out[i].ID]; ok {
+			out[i].Progress = &p
+		}
 	}
 	return out, total, nil
 }
@@ -221,6 +240,10 @@ func (l *Library) GetBook(ctx context.Context, id int64) (*Book, error) {
 		scanFormat, b.ID); err != nil {
 		return nil, fmt.Errorf("calibre: formats: %w", err)
 	}
+	progress, _ := l.progressForBooks(ctx, []int64{b.ID})
+	if p, ok := progress[b.ID]; ok {
+		b.Progress = &p
+	}
 	return &b, nil
 }
 
@@ -230,7 +253,7 @@ func queryAll[T any](ctx context.Context, db *sql.DB, q string, scan func(*sql.R
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []T
 	for rows.Next() {
 		v, err := scan(rows)
@@ -261,7 +284,7 @@ func (l *Library) authorsForBooks(ctx context.Context, ids []int64) (map[int64][
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	placeholders := strings.TrimRight(strings.Repeat("?,", len(ids)), ",")
+	placeholders := strings.Join(slices.Repeat([]string{"?"}, len(ids)), ",")
 	args := make([]any, len(ids))
 	for i, id := range ids {
 		args[i] = id
@@ -275,7 +298,7 @@ func (l *Library) authorsForBooks(ctx context.Context, ids []int64) (map[int64][
 	if err != nil {
 		return nil, fmt.Errorf("calibre: authors: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := make(map[int64][]string, len(ids))
 	for rows.Next() {
 		var book int64
@@ -284,6 +307,41 @@ func (l *Library) authorsForBooks(ctx context.Context, ids []int64) (map[int64][
 			return nil, err
 		}
 		out[book] = append(out[book], name)
+	}
+	return out, rows.Err()
+}
+
+func (l *Library) progressForBooks(ctx context.Context, ids []int64) (map[int64]ReadingProgress, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	placeholders := strings.Join(slices.Repeat([]string{"?"}, len(ids)), ",")
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	// Pick the most recent reading position per book.
+	rows, err := l.db.QueryContext(ctx, `
+		SELECT book, MAX(pos_frac), MAX(epoch)
+		FROM last_read_positions
+		WHERE book IN (`+placeholders+`)
+		GROUP BY book`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("calibre: reading progress: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	out := make(map[int64]ReadingProgress, len(ids))
+	for rows.Next() {
+		var book int64
+		var frac float64
+		var epoch float64
+		if err := rows.Scan(&book, &frac, &epoch); err != nil {
+			return nil, err
+		}
+		out[book] = ReadingProgress{
+			Fraction: frac,
+			LastRead: time.Unix(int64(epoch), 0),
+		}
 	}
 	return out, rows.Err()
 }

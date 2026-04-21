@@ -54,6 +54,7 @@ func newFixtureServer(t *testing.T) *httptest.Server {
 		`CREATE TABLE identifiers (id INTEGER PRIMARY KEY, book INTEGER, type TEXT, val TEXT)`,
 		`CREATE TABLE data (id INTEGER PRIMARY KEY, book INTEGER, format TEXT, uncompressed_size INTEGER, name TEXT)`,
 		`CREATE TABLE comments (id INTEGER PRIMARY KEY, book INTEGER, text TEXT)`,
+		`CREATE TABLE last_read_positions (id INTEGER PRIMARY KEY, book INTEGER, format TEXT, user TEXT, device TEXT, cfi TEXT, epoch REAL, pos_frac REAL)`,
 		`INSERT INTO books(id,title,sort,author_sort,has_cover,timestamp,pubdate,series_index,path)
 			VALUES (1,'Alpha','Alpha','Lovelace, Ada',1,
 			        '2024-01-02 10:00:00.000000+00:00','2023-06-01 00:00:00.000000+00:00',
@@ -78,7 +79,7 @@ func newFixtureServer(t *testing.T) *httptest.Server {
 	}
 	t.Cleanup(func() { _ = lib.Close() })
 
-	srv, err := New(lib, slog.New(slog.DiscardHandler))
+	srv, err := New(lib, slog.New(slog.DiscardHandler), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +98,7 @@ func get(t *testing.T, ts *httptest.Server, path string) (*http.Response, string
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	return resp, string(body)
 }
 
@@ -110,7 +111,7 @@ func TestRouteRedirect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusFound {
 		t.Errorf("status = %d, want 302", resp.StatusCode)
 	}

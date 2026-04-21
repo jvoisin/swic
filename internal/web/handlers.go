@@ -17,7 +17,7 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 
 	sort := calibre.SortOrder(query.Get("sort"))
 	switch sort {
-	case calibre.SortByTitle, calibre.SortByAuthor, calibre.SortByDate:
+	case calibre.SortByTitle, calibre.SortByAuthor, calibre.SortByDate, calibre.SortByLastRead:
 	default:
 		sort = calibre.SortByDate
 	}
@@ -29,11 +29,16 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		field = calibre.SearchAny
 	}
 
+	search := strings.TrimSpace(query.Get("q"))
+	if len(search) > 1000 {
+		search = search[:1000]
+	}
+
 	q := calibre.ListQuery{
 		Limit:    s.pageSize,
 		Offset:   (page - 1) * s.pageSize,
 		Sort:     sort,
-		Search:   strings.TrimSpace(query.Get("q")),
+		Search:   search,
 		SearchIn: field,
 	}
 	books, total, err := s.lib.ListBooks(r.Context(), q)
@@ -43,8 +48,9 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 	}
 	totalPages := max((total+s.pageSize-1)/s.pageSize, 1)
 	data := map[string]any{
-		"Books":      books,
-		"Total":      total,
+		"Books":        books,
+		"Total":        total,
+		"LibraryTotal": s.lib.BookCount(),
 		"Page":       page,
 		"TotalPages": totalPages,
 		"Sort":       string(sort),
@@ -121,7 +127,7 @@ func validFormat(s string) bool {
 		return false
 	}
 	for _, r := range s {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')) {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
 			return false
 		}
 	}

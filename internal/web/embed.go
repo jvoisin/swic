@@ -23,6 +23,7 @@ func parseTemplates() (*template.Template, error) {
 		"fmtDate":   fmtDate,
 		"lower":     strings.ToLower,
 		"searchURL": searchURL,
+		"mul":       func(a, b float64) float64 { return a * b },
 	}
 	return template.New("").Funcs(funcs).ParseFS(templatesFS, "templates/*.gohtml")
 }

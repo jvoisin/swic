@@ -1,6 +1,6 @@
 {{define "books_list.gohtml"}}{{template "header" "Books"}}
 <section class="toolbar">
-  <h1>Books <span class="count">({{.Total}})</span></h1>
+  <h1>Books <span class="count">{{if .Query}}({{.Total}} of {{.LibraryTotal}}){{else}}({{.LibraryTotal}}){{end}}</span></h1>
   <form method="get" action="/books" class="search-form">
     <input type="search" name="q" value="{{.Query}}" placeholder="Search…" autofocus>
     <select name="in" title="Search in">
@@ -22,7 +22,8 @@
     <select id="sort" name="sort" onchange="this.form.submit()">
       <option value="title"  {{if eq .Sort "title"}}selected{{end}}>Title</option>
       <option value="author" {{if eq .Sort "author"}}selected{{end}}>Author</option>
-      <option value="date"   {{if eq .Sort "date"}}selected{{end}}>Recently added</option>
+      <option value="date"     {{if eq .Sort "date"}}selected{{end}}>Recently added</option>
+      <option value="lastread" {{if eq .Sort "lastread"}}selected{{end}}>Last read</option>
     </select>
     <noscript><button type="submit">Apply</button></noscript>
   </form>
@@ -43,6 +44,7 @@
       <a href="/books/{{.ID}}" class="title">{{.Title}}</a>
       {{if .Authors}}<div class="authors">{{range $i, $a := .Authors}}{{if $i}}, {{end}}{{$a}}{{end}}</div>{{end}}
       {{if .SeriesName}}<div class="series">{{.SeriesName}} #{{printf "%g" .SeriesIndex}}</div>{{end}}
+      {{if .Progress}}<div class="progress" title="Last read {{fmtDate .Progress.LastRead}}">📖 {{printf "%.0f" (mul .Progress.Fraction 100)}}%</div>{{end}}
     </div>
   </li>
   {{end}}

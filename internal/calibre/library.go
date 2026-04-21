@@ -58,6 +58,13 @@ func Open(root string) (*Library, error) {
 	return &Library{root: r, fsys: r.FS(), db: db}, nil
 }
 
+// BookCount returns the total number of books in the library.
+func (l *Library) BookCount() int {
+	var n int
+	_ = l.db.QueryRow(`SELECT count(*) FROM books`).Scan(&n)
+	return n
+}
+
 // Close releases resources held by the library.
 func (l *Library) Close() error {
 	dbErr := l.db.Close()
