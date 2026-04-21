@@ -29,11 +29,16 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		field = calibre.SearchAny
 	}
 
+	search := strings.TrimSpace(query.Get("q"))
+	if len(search) > 1000 {
+		search = search[:1000]
+	}
+
 	q := calibre.ListQuery{
 		Limit:    s.pageSize,
 		Offset:   (page - 1) * s.pageSize,
 		Sort:     sort,
-		Search:   strings.TrimSpace(query.Get("q")),
+		Search:   search,
 		SearchIn: field,
 	}
 	books, total, err := s.lib.ListBooks(r.Context(), q)
