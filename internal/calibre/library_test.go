@@ -67,6 +67,7 @@ func newFixtureLibrary(t *testing.T) *Library {
 		`CREATE TABLE identifiers (id INTEGER PRIMARY KEY, book INTEGER, type TEXT, val TEXT)`,
 		`CREATE TABLE data (id INTEGER PRIMARY KEY, book INTEGER, format TEXT, uncompressed_size INTEGER, name TEXT)`,
 		`CREATE TABLE comments (id INTEGER PRIMARY KEY, book INTEGER, text TEXT)`,
+		`CREATE TABLE last_read_positions (id INTEGER PRIMARY KEY, book INTEGER, format TEXT, user TEXT, device TEXT, cfi TEXT, epoch REAL, pos_frac REAL)`,
 	}
 	for _, s := range stmts {
 		if _, err := db.Exec(s); err != nil {
@@ -108,6 +109,10 @@ func newFixtureLibrary(t *testing.T) *Library {
 		(2,'EPUB',789,'Beta - Ben Franklin')`)
 	// comments
 	exec(`INSERT INTO comments(book,text) VALUES (1,'<p>Hello <b>World</b></p>')`)
+	// reading progress
+	exec(`INSERT INTO last_read_positions(book,format,user,device,cfi,epoch,pos_frac) VALUES
+		(1,'EPUB','_','_','/6/4',1704067200,0.72),
+		(2,'EPUB','_','_','/2/2',1704153600,0.35)`)
 
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
@@ -360,6 +365,60 @@ func TestBookFilePath(t *testing.T) {
 	if _, err := lib.BookFilePath(ctx, 9999, "epub"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("missing book: err = %v, want ErrNotFound", err)
 	}
+}
+
+func TestReadingProgress(t *testing.T) {
+	lib := newFixtureLibrary(t)
+	ctx := context.Background()
+
+	t.Run("list books includes progress", func(t *testing.T) {
+		books, _, err := lib.ListBooks(ctx, ListQuery{Sort: SortByTitle})
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Alpha (id=1) has progress 0.72
+		alpha := books[0]
+		if alpha.Title != "Alpha" {
+			t.Fatalf("expected Alpha, got %q", alpha.Title)
+		}
+		if alpha.Progress == nil {
+			t.Fatal("Alpha should have reading progress")
+		}
+		if alpha.Progress.Fraction != 0.72 {
+			t.Errorf("Alpha progress = %f, want 0.72", alpha.Progress.Fraction)
+		}
+		if alpha.Progress.LastRead.IsZero() {
+			t.Error("Alpha LastRead should not be zero")
+		}
+		// Gamma (id=3) has no progress
+		gamma := books[2]
+		if gamma.Title != "Gamma" {
+			t.Fatalf("expected Gamma, got %q", gamma.Title)
+		}
+		if gamma.Progress != nil {
+			t.Errorf("Gamma should have no progress, got %+v", gamma.Progress)
+		}
+	})
+
+	t.Run("get book includes progress", func(t *testing.T) {
+		b, err := lib.GetBook(ctx, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if b.Progress == nil || b.Progress.Fraction != 0.72 {
+			t.Errorf("GetBook progress = %+v, want 0.72", b.Progress)
+		}
+	})
+
+	t.Run("book without progress", func(t *testing.T) {
+		b, err := lib.GetBook(ctx, 3)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if b.Progress != nil {
+			t.Errorf("Gamma should have no progress, got %+v", b.Progress)
+		}
+	})
 }
 
 func TestOpenRejectsNonLibrary(t *testing.T) {
