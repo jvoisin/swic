@@ -73,6 +73,7 @@ func (s *Server) render(w http.ResponseWriter, name string, data any) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates.ExecuteTemplate(w, name, data); err != nil {
 		s.logger.Error("render template", "tmpl", name, "err", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 }
 
