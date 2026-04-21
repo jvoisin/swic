@@ -121,7 +121,7 @@ func (l *Library) ListBooks(ctx context.Context, q ListQuery) ([]BookSummary, in
 	}
 	defer rows.Close()
 
-	var out []BookSummary
+	out := make([]BookSummary, 0, q.Limit)
 	var total int
 	for rows.Next() {
 		var (
@@ -261,7 +261,7 @@ func (l *Library) authorsForBooks(ctx context.Context, ids []int64) (map[int64][
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	placeholders := strings.TrimRight(strings.Repeat("?,", len(ids)), ",")
+	placeholders := strings.Join(slices.Repeat([]string{"?"}, len(ids)), ",")
 	args := make([]any, len(ids))
 	for i, id := range ids {
 		args[i] = id
