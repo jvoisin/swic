@@ -17,7 +17,7 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 
 	sort := calibre.SortOrder(query.Get("sort"))
 	switch sort {
-	case calibre.SortByTitle, calibre.SortByAuthor, calibre.SortByDate:
+	case calibre.SortByTitle, calibre.SortByAuthor, calibre.SortByDate, calibre.SortByLastRead:
 	default:
 		sort = calibre.SortByDate
 	}

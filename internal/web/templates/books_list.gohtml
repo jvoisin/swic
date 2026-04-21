@@ -22,7 +22,8 @@
     <select id="sort" name="sort" onchange="this.form.submit()">
       <option value="title"  {{if eq .Sort "title"}}selected{{end}}>Title</option>
       <option value="author" {{if eq .Sort "author"}}selected{{end}}>Author</option>
-      <option value="date"   {{if eq .Sort "date"}}selected{{end}}>Recently added</option>
+      <option value="date"     {{if eq .Sort "date"}}selected{{end}}>Recently added</option>
+      <option value="lastread" {{if eq .Sort "lastread"}}selected{{end}}>Last read</option>
     </select>
     <noscript><button type="submit">Apply</button></noscript>
   </form>

@@ -14,9 +14,10 @@ import (
 type SortOrder string
 
 const (
-	SortByTitle  SortOrder = "title"
-	SortByAuthor SortOrder = "author"
-	SortByDate   SortOrder = "date" // most recently added first
+	SortByTitle    SortOrder = "title"
+	SortByAuthor   SortOrder = "author"
+	SortByDate     SortOrder = "date"     // most recently added first
+	SortByLastRead SortOrder = "lastread" // most recently read first
 )
 
 // SearchField selects which column(s) the search string is matched against.
@@ -86,9 +87,10 @@ type Book struct {
 }
 
 var orderByClause = map[SortOrder]string{
-	SortByAuthor: "author_sort COLLATE NOCASE ASC, sort COLLATE NOCASE ASC",
-	SortByDate:   "timestamp DESC",
-	SortByTitle:  "sort COLLATE NOCASE ASC",
+	SortByAuthor:   "author_sort COLLATE NOCASE ASC, sort COLLATE NOCASE ASC",
+	SortByDate:     "timestamp DESC",
+	SortByTitle:    "sort COLLATE NOCASE ASC",
+	SortByLastRead: "last_read_epoch DESC, timestamp DESC",
 }
 
 // ListBooks returns a page of book summaries plus the total book count.
@@ -112,10 +114,12 @@ func (l *Library) ListBooks(ctx context.Context, q ListQuery) ([]BookSummary, in
 	                     books.has_cover AS has_cover, books.timestamp AS timestamp,
 	                     books.sort AS sort, books.author_sort AS author_sort,
 	                     COALESCE(books.series_index, 1.0) AS series_index,
-	                     COALESCE(series.name, '') AS series_name
+	                     COALESCE(series.name, '') AS series_name,
+	                     COALESCE(lrp.epoch, 0) AS last_read_epoch
 	              FROM books
 	              LEFT JOIN books_series_link ON books_series_link.book = books.id
-	              LEFT JOIN series ON series.id = books_series_link.series` +
+	              LEFT JOIN series ON series.id = books_series_link.series
+	              LEFT JOIN (SELECT book, MAX(epoch) AS epoch FROM last_read_positions GROUP BY book) lrp ON lrp.book = books.id` +
 		joins +
 		where + `
 	          )
