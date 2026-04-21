@@ -23,11 +23,7 @@ func (l *Library) CoverPath(ctx context.Context, id int64) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("calibre: cover lookup: %w", err)
 	}
-	rel := path.Join(p, "cover.jpg")
-	if _, err := l.root.Stat(rel); err != nil {
-		return "", ErrNotFound
-	}
-	return rel, nil
+	return path.Join(p, "cover.jpg"), nil
 }
 
 // BookFilePath returns the book file's path relative to the library root,
@@ -47,9 +43,5 @@ func (l *Library) BookFilePath(ctx context.Context, id int64, format string) (st
 	if err != nil {
 		return "", fmt.Errorf("calibre: file lookup: %w", err)
 	}
-	rel := path.Join(bookPath, name+"."+strings.ToLower(fmtName))
-	if _, err := l.root.Stat(rel); err != nil {
-		return "", ErrNotFound
-	}
-	return rel, nil
+	return path.Join(bookPath, name+"."+strings.ToLower(fmtName)), nil
 }
