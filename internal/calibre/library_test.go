@@ -421,6 +421,13 @@ func TestReadingProgress(t *testing.T) {
 	})
 }
 
+func TestBookCount(t *testing.T) {
+	lib := newFixtureLibrary(t)
+	if n := lib.BookCount(); n != 3 {
+		t.Errorf("BookCount() = %d, want 3", n)
+	}
+}
+
 func TestOpenRejectsNonLibrary(t *testing.T) {
 	dir := t.TempDir()
 	if _, err := Open(dir); err == nil {
